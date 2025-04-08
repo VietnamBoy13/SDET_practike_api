@@ -1,0 +1,6 @@
+pytest==7.0.0
+allure-pytest==2.9.45
+pydantic~=2.11.2
+requests==2.32.0
+allure-python-commons~=2.9.45
+Faker~=37.1.0
