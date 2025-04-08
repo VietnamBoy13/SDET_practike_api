@@ -1,5 +1,14 @@
 import allure
+import pytest
+
 from api.data import CREATE_ENTITY_DATA, UPDATE_ENTITY_DATA
+
+
+@pytest.fixture
+def created_entity(api):
+    entity = api.create_entity()
+    yield entity
+    api.delete_entity(entity.id)
 
 
 @allure.story("Создание новой сущности")
@@ -9,20 +18,28 @@ from api.data import CREATE_ENTITY_DATA, UPDATE_ENTITY_DATA
 @allure.testcase("https://localhost:8080/api/create")
 @allure.description(
     """
+    (комментарий: сценарий должен быть полноценным — создание, проверка через GET и в списке, удаление)
+
     Шаги:
-    1. Отправить POST-запрос на создание сущности;
-    2. Проверить, что код ответа - 200;
-    3. Убедиться, что в ответе присутствует корректный ID, title и verified.
+    1. Создать сущность;
+    2. Проверить ID, title и verified;
+    3. Получить сущность по ID и сверить данные;
+    4. Убедиться, что сущность есть в списке всех;
     """
 )
-def test_create_entity(self, api):
-    created_entity = api.create_entity(CREATE_ENTITY_DATA)
-    with allure.step("Проверяем, что ID - целое число"):
-        assert isinstance(created_entity.id, int)
-    with allure.step("Проверяем, что title - строка"):
-        assert isinstance(created_entity.title, str)
-    with allure.step("Проверяем, что verified - булево значение"):
-        assert isinstance(created_entity.verified, bool)
+def test_create_entity(api, created_entity):
+    with allure.step("Проверяем корректность созданной сущности"):
+        assert created_entity.title == CREATE_ENTITY_DATA["title"]
+        assert created_entity.verified == CREATE_ENTITY_DATA["verified"]
+
+    with allure.step("Проверяем получение по ID"):
+        received = api.get_entity(created_entity.id)
+        assert received == created_entity
+
+    with allure.step("Проверяем, что сущность есть в общем списке"):
+        all_entities = api.get_all_entities()
+        ids = [e.id for e in all_entities]
+        assert created_entity.id in ids
 
 
 @allure.story("Получение сущности по ID")
@@ -33,19 +50,17 @@ def test_create_entity(self, api):
 @allure.description(
     """
     Шаги:
-    1. Выполнить GET-запрос на получение сущности по ID;
-    2. Проверить, что код ответа - 200;
-    3. Убедиться, что данные соответствуют ожидаемым.
+    1. Создать сущность;
+    2. Получить её по ID;
+    3. Сравнить поля с оригинальными;
     """
 )
-def test_get_entity(self, api, created_entity_id):
-    selected_entity = api.get_entity(created_entity_id)
-    with allure.step("Проверяем совпадение ID"):
-        assert selected_entity.id == created_entity_id
-    with allure.step("Проверяем совпадение title"):
-        assert selected_entity.title == CREATE_ENTITY_DATA["title"]
-    with allure.step("Проверяем совпадение verified"):
-        assert selected_entity.verified == CREATE_ENTITY_DATA["verified"]
+def test_get_entity(api, created_entity):
+    with allure.step("Получаем сущность по ID"):
+        entity = api.get_entity(created_entity.id)
+
+    with allure.step("Проверяем данные сущности"):
+        assert entity == created_entity
 
 
 @allure.story("Удаление сущности")
@@ -56,22 +71,25 @@ def test_get_entity(self, api, created_entity_id):
 @allure.description(
     """
     Шаги:
-    1. Выполнить DELETE-запрос по ID сущности;
-    2. Проверить, что код ответа - 204;
-    3. Убедиться, что сущность удалена успешно.
+    1. Создать сущность;
+    2. Удалить сущность;
+    3. Убедиться, что она отсутствует в getAll и по ID;
     """
 )
-def test_delete_entity(self, api, created_entity_id):
-    # Проверяем, что сущность существует перед удалением
-    entity = api.get_entity(created_entity_id)
-    assert entity.id == created_entity_id, "Entity not found before delete"
+def test_delete_entity(api):
+    entity = api.create_entity()
 
-    # Удаляем сущность
-    deletion_result = api.delete_entity(created_entity_id)
+    with allure.step("Удаляем сущность"):
+        api.delete_entity(entity.id)
 
-    # Проверяем, что сущность успешно удалена
-    with allure.step("Проверяем успешное удаление"):
-        assert deletion_result is True
+    with allure.step("Проверяем, что сущность отсутствует в getAll"):
+        all_entities = api.get_all_entities()
+        ids = [e.id for e in all_entities]
+        assert entity.id not in ids
+
+    with allure.step("Проверяем, что get по ID возвращает ошибку"):
+        with pytest.raises(AssertionError):
+            api.get_entity(entity.id)
 
 
 @allure.story("Получение всех сущностей")
@@ -82,28 +100,18 @@ def test_delete_entity(self, api, created_entity_id):
 @allure.description(
     """
     Шаги:
-    1. Выполнить GET-запрос на получение всех сущностей;
-    2. Проверить, что ответ содержит список сущностей;
-    3. Проверить типы полей каждой сущности.
+    1. Создать сущность;
+    2. Получить список всех сущностей;
+    3. Проверить, что созданная сущность в списке;
     """
 )
-def test_get_all_entities(self, api):
-    # Получаем все сущности
-    entities = api.get_all_entities()
+def test_get_all_entities(api, created_entity):
+    with allure.step("Получаем список всех сущностей"):
+        all_entities = api.get_all_entities()
 
-    with allure.step("Проверяем, что список не пустой"):
-        assert len(entities) > 0, "Не найдено ни одной сущности"
-
-    # Выводим все сущности для отладки или отображения
-    print(f"Total entities found: {len(entities)}")
-    for entity in entities:
-        # Печатаем информацию о каждой сущности
-        print(f"Entity ID: {entity.id}, Title: {entity.title}, Verified: {entity.verified}")
-
-        with allure.step(f"Проверяем типы полей для сущности ID {entity.id}"):
-            assert isinstance(entity.id, int)
-            assert isinstance(entity.title, str)
-            assert isinstance(entity.verified, bool)
+    with allure.step("Проверяем, что в списке есть созданная сущность"):
+        ids = [e.id for e in all_entities]
+        assert created_entity.id in ids
 
 
 @allure.story("Обновление сущности")
@@ -113,17 +121,24 @@ def test_get_all_entities(self, api):
 @allure.testcase("https://localhost:8080/api/patch/{id}")
 @allure.description(
     """
+    (комментарий: сценарий — создать → обновить → получить → проверить)
+
     Шаги:
-    1. Отправить PATCH-запрос на обновление сущности;
-    2. Проверить, что код ответа - 204;
-    3. Проверить, что данные были обновлены корректно.
+    1. Создать сущность;
+    2. Обновить данные;
+    3. Получить сущность по ID;
+    4. Сравнить обновленные данные;
     """
 )
-def test_patch_entity(self, api, created_entity_id):
-    updated_entity = api.patch_entity(created_entity_id, UPDATE_ENTITY_DATA)
-    with allure.step("Проверяем ID сущности"):
-        assert updated_entity.id == created_entity_id
-    with allure.step("Проверяем обновлённый title"):
-        assert updated_entity.title == UPDATE_ENTITY_DATA["title"]
-    with allure.step("Проверяем обновлённый verified"):
-        assert updated_entity.verified == UPDATE_ENTITY_DATA["verified"]
+def test_patch_entity(api, created_entity):
+    with allure.step("Обновляем сущность"):
+        updated = api.patch_entity(created_entity.id)
+
+    with allure.step("Проверяем обновлённые данные"):
+        assert updated.id == created_entity.id
+        assert updated.title == UPDATE_ENTITY_DATA["title"]
+        assert updated.verified == UPDATE_ENTITY_DATA["verified"]
+
+    with allure.step("Проверяем через get, что обновление применилось"):
+        fetched = api.get_entity(created_entity.id)
+        assert fetched == updated
