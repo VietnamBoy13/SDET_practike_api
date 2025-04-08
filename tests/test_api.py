@@ -29,17 +29,28 @@ def created_entity(api):
 )
 def test_create_entity(api, created_entity):
     with allure.step("Проверяем корректность созданной сущности"):
-        assert created_entity.title == CREATE_ENTITY_DATA["title"]
-        assert created_entity.verified == CREATE_ENTITY_DATA["verified"]
+        assert created_entity.title == CREATE_ENTITY_DATA["title"], (
+            f"Ошибка: title сущности не совпадает с ожидаемым. "
+            f"Ожидалось: {CREATE_ENTITY_DATA['title']}, получено: {created_entity.title}"
+        )
+        assert created_entity.verified == CREATE_ENTITY_DATA["verified"], (
+            f"Ошибка: verified сущности не совпадает с ожидаемым. "
+            f"Ожидалось: {CREATE_ENTITY_DATA['verified']}, получено: {created_entity.verified}"
+        )
 
     with allure.step("Проверяем получение по ID"):
         received = api.get_entity(created_entity.id)
-        assert received == created_entity
+        assert received == created_entity, (
+            f"Ошибка: данные сущности по ID не совпадают. "
+            f"Ожидалось: {created_entity}, получено: {received}"
+        )
 
     with allure.step("Проверяем, что сущность есть в общем списке"):
         all_entities = api.get_all_entities()
         ids = [e.id for e in all_entities]
-        assert created_entity.id in ids
+        assert created_entity.id in ids, (
+            f"Ошибка: сущность с ID {created_entity.id} не найдена в списке всех сущностей."
+        )
 
 
 @allure.story("Получение сущности по ID")
@@ -60,7 +71,10 @@ def test_get_entity(api, created_entity):
         entity = api.get_entity(created_entity.id)
 
     with allure.step("Проверяем данные сущности"):
-        assert entity == created_entity
+        assert entity == created_entity, (
+            f"Ошибка: данные сущности по ID не совпадают. "
+            f"Ожидалось: {created_entity}, получено: {entity}"
+        )
 
 
 @allure.story("Удаление сущности")
@@ -85,7 +99,9 @@ def test_delete_entity(api):
     with allure.step("Проверяем, что сущность отсутствует в getAll"):
         all_entities = api.get_all_entities()
         ids = [e.id for e in all_entities]
-        assert entity.id not in ids
+        assert entity.id not in ids, (
+            f"Ошибка: сущность с ID {entity.id} всё ещё присутствует в списке всех сущностей."
+        )
 
     with allure.step("Проверяем, что get по ID возвращает ошибку"):
         with pytest.raises(AssertionError):
@@ -111,7 +127,9 @@ def test_get_all_entities(api, created_entity):
 
     with allure.step("Проверяем, что в списке есть созданная сущность"):
         ids = [e.id for e in all_entities]
-        assert created_entity.id in ids
+        assert created_entity.id in ids, (
+            f"Ошибка: сущность с ID {created_entity.id} не найдена в списке всех сущностей."
+        )
 
 
 @allure.story("Обновление сущности")
@@ -135,10 +153,22 @@ def test_patch_entity(api, created_entity):
         updated = api.patch_entity(created_entity.id)
 
     with allure.step("Проверяем обновлённые данные"):
-        assert updated.id == created_entity.id
-        assert updated.title == UPDATE_ENTITY_DATA["title"]
-        assert updated.verified == UPDATE_ENTITY_DATA["verified"]
+        assert updated.id == created_entity.id, (
+            f"Ошибка: ID сущности после обновления не совпадает с ожидаемым. "
+            f"Ожидалось: {created_entity.id}, получено: {updated.id}"
+        )
+        assert updated.title == UPDATE_ENTITY_DATA["title"], (
+            f"Ошибка: title сущности после обновления не совпадает с ожидаемым. "
+            f"Ожидалось: {UPDATE_ENTITY_DATA['title']}, получено: {updated.title}"
+        )
+        assert updated.verified == UPDATE_ENTITY_DATA["verified"], (
+            f"Ошибка: verified сущности после обновления не совпадает с ожидаемым. "
+            f"Ожидалось: {UPDATE_ENTITY_DATA['verified']}, получено: {updated.verified}"
+        )
 
     with allure.step("Проверяем через get, что обновление применилось"):
         fetched = api.get_entity(created_entity.id)
-        assert fetched == updated
+        assert fetched == updated, (
+            f"Ошибка: данные сущности после обновления не совпадают с ожидаемыми. "
+            f"Ожидалось: {updated}, получено: {fetched}"
+        )
